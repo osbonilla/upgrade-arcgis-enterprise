@@ -41,17 +41,28 @@ Ambos entornos comparten el mismo patrón arquitectónico: **una máquina físic
 
 ```mermaid
 flowchart TD
-    subgraph HOST["MÁQUINA FÍSICA (Host)<br/>obonilla.esrinosa.local"]
+    subgraph HOST["MÁQUINA FÍSICA (Host)"]
+        HOST_NAME(["obonilla.esrinosa.local"])
         HOST_IP["IP Wi-Fi: 192.168.100.248<br/>IP VirtualBox Host-Only: 192.168.56.1"]
         HOST_SW["Portal for ArcGIS 12.1<br/>ArcGIS Server 12.1 (Hosting Server)<br/>ArcGIS Web Adaptor"]
+        HOST_NAME --> HOST_IP --> HOST_SW
     end
-    subgraph VM["MÁQUINA VIRTUAL (VirtualBox)<br/>WIN-OC2B24K34HS"]
+
+    subgraph VM["MÁQUINA VIRTUAL (VirtualBox)"]
+        VM_NAME(["WIN-OC2B24K34HS"])
         VM_IP["IP: 192.168.100.250"]
         VM_SW["ArcGIS Data Store 12.1<br/>• Relational store<br/>• Object store<br/>• Spatiotemporal big data store<br/>ArcGIS Velocity (puerto 7143)"]
+        VM_NAME --> VM_IP --> VM_SW
     end
-    HOST_IP --> HOST_SW
-    VM_IP --> VM_SW
-    HOST -->|"Federación puerto 6443<br/>Comunicación BIDIRECCIONAL"| VM
+
+    HOST ==>|"Federación puerto 6443<br/>Comunicación BIDIRECCIONAL"| VM
+
+    classDef hostBox fill:#1e293b,stroke:#60a5fa,stroke-width:1px,color:#e5e7eb
+    classDef vmBox fill:#1e293b,stroke:#34d399,stroke-width:1px,color:#e5e7eb
+    classDef nameNode fill:transparent,stroke:none,color:#9ca3af,font-style:italic
+    class HOST_IP,HOST_SW hostBox
+    class VM_IP,VM_SW vmBox
+    class HOST_NAME,VM_NAME nameNode
 ```
 
 > **Nota sobre buenas prácticas de arquitectura:** Esri recomienda para producción una topología de 3 máquinas (Web GIS Server, Real-Time Server, Big Data Server) y desaconseja combinar más de un tipo de Data Store en una sola máquina por motivos de rendimiento (advertencia mostrada textualmente en el propio asistente de configuración: *"While more than one type of data store can be configured on a single machine, it is not recommended for production systems due to performance considerations."*). En este despliegue, por tratarse de un entorno de laboratorio/pruebas en VirtualBox, se combinaron intencionalmente los tres tipos de Data Store y ArcGIS Velocity en una sola VM.
@@ -60,17 +71,29 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    subgraph HOSTB["MÁQUINA FÍSICA (Host de la compañera)<br/>geoportal.esri.co"]
-        HOSTB_INFO["Antivirus: Kaspersky Endpoint Security<br/>IP observada: 192.168.100.249 (ver nota IP)"]
+    subgraph HOSTB["MÁQUINA FÍSICA (Host de la compañera)"]
+        HOSTB_NAME(["geoportal.esri.co"])
+        HOSTB_AV["Antivirus: Kaspersky Endpoint Security"]
+        HOSTB_IP["IP observada: 192.168.100.249 (ver nota IP)"]
         HOSTB_SW["Portal for ArcGIS 12.1<br/>ArcGIS Server 12.1 (Hosting Server)"]
+        HOSTB_NAME --> HOSTB_AV --> HOSTB_IP --> HOSTB_SW
     end
-    subgraph VMB["MÁQUINA VIRTUAL (VirtualBox)<br/>WIN-KQ3HPTQDHP1"]
+
+    subgraph VMB["MÁQUINA VIRTUAL (VirtualBox)"]
+        VMB_NAME(["WIN-KQ3HPTQDHP1"])
         VMB_IP["IP observada: 192.168.100.249 (ver nota IP)"]
         VMB_SW["ArcGIS Data Store 12.1<br/>• Relational store<br/>• Object store<br/>• Spatiotemporal big data store"]
+        VMB_NAME --> VMB_IP --> VMB_SW
     end
-    HOSTB_INFO --> HOSTB_SW
-    VMB_IP --> VMB_SW
-    HOSTB -->|"Federación puerto 6443"| VMB
+
+    HOSTB ==>|"Federación puerto 6443"| VMB
+
+    classDef hostBox fill:#1e293b,stroke:#f87171,stroke-width:1px,color:#e5e7eb
+    classDef vmBox fill:#1e293b,stroke:#fbbf24,stroke-width:1px,color:#e5e7eb
+    classDef nameNode fill:transparent,stroke:none,color:#9ca3af,font-style:italic
+    class HOSTB_AV,HOSTB_IP,HOSTB_SW hostBox
+    class VMB_IP,VMB_SW vmBox
+    class HOSTB_NAME,VMB_NAME nameNode
 ```
 
 > ⚠️ **Nota sobre inconsistencia de direcciones IP (Entorno B):** En distintos momentos de la conversación, la dirección `192.168.100.249` aparece asociada tanto a `geoportal.esri.co` (máquina física) como, más adelante, a la VM `WIN-KQ3HPTQDHP1`, mientras que en pruebas posteriores la dirección de origen (physical) aparece como `192.168.100.228`. Esto sugiere una posible **reasignación de IP por DHCP** entre distintos momentos de la sesión de trabajo. Esta discrepancia no fue aclarada explícitamente en la conversación — *información no especificada en la conversación.* Se recomienda, al reproducir este runbook, **fijar IPs estáticas o reservas DHCP** para evitar este tipo de confusión (ver sección de Lecciones Aprendidas).
