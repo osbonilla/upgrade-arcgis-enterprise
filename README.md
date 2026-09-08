@@ -39,59 +39,38 @@ Ambos entornos comparten el mismo patrón arquitectónico: **una máquina físic
 
 ### Diagrama de arquitectura — Entorno A (Usuario principal)
 
-```
-┌─────────────────────────────────────────────────┐
-│  MÁQUINA FÍSICA (Host)                          │
-│  Hostname: obonilla.esrinosa.local              │
-│  IP (Wi-Fi): 192.168.100.248                    │
-│  IP (VirtualBox Host-Only): 192.168.56.1        │
-│                                                 │
-│  - Portal for ArcGIS 12.1                       │
-│  - ArcGIS Server 12.1 (Hosting Server)          │
-│  - ArcGIS Web Adaptor                           │
-└───────────────────┬─────────────────────────────┘
-                    │ Federación (puerto 6443)
-                    │ Comunicación BIDIRECCIONAL
-                    ▼
-┌─────────────────────────────────────────────────┐
-│  MÁQUINA VIRTUAL (VirtualBox)                   │
-│  Hostname: WIN-OC2B24K34HS                      │
-│  IP: 192.168.100.250                            │
-│                                                 │
-│  - ArcGIS Data Store 12.1                       │
-│      • Relational store                         │
-│      • Object store                             │
-│      • Spatiotemporal big data store            │
-│  - ArcGIS Velocity (puerto 7143)                │
-└─────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph HOST["MÁQUINA FÍSICA (Host)<br/>obonilla.esrinosa.local"]
+        HOST_IP["IP Wi-Fi: 192.168.100.248<br/>IP VirtualBox Host-Only: 192.168.56.1"]
+        HOST_SW["Portal for ArcGIS 12.1<br/>ArcGIS Server 12.1 (Hosting Server)<br/>ArcGIS Web Adaptor"]
+    end
+    subgraph VM["MÁQUINA VIRTUAL (VirtualBox)<br/>WIN-OC2B24K34HS"]
+        VM_IP["IP: 192.168.100.250"]
+        VM_SW["ArcGIS Data Store 12.1<br/>• Relational store<br/>• Object store<br/>• Spatiotemporal big data store<br/>ArcGIS Velocity (puerto 7143)"]
+    end
+    HOST_IP --> HOST_SW
+    VM_IP --> VM_SW
+    HOST -->|"Federación puerto 6443<br/>Comunicación BIDIRECCIONAL"| VM
 ```
 
 > **Nota sobre buenas prácticas de arquitectura:** Esri recomienda para producción una topología de 3 máquinas (Web GIS Server, Real-Time Server, Big Data Server) y desaconseja combinar más de un tipo de Data Store en una sola máquina por motivos de rendimiento (advertencia mostrada textualmente en el propio asistente de configuración: *"While more than one type of data store can be configured on a single machine, it is not recommended for production systems due to performance considerations."*). En este despliegue, por tratarse de un entorno de laboratorio/pruebas en VirtualBox, se combinaron intencionalmente los tres tipos de Data Store y ArcGIS Velocity en una sola VM.
 
 ### Diagrama de arquitectura — Entorno B (Compañera)
 
-```
-┌─────────────────────────────────────────────────┐
-│  MÁQUINA FÍSICA (Host de la compañera)          │
-│  Hostname/Dominio: geoportal.esri.co            │
-│  Antivirus: Kaspersky Endpoint Security         │
-│  IP observada: 192.168.100.249 (ver nota IP)    │
-│                                                 │
-│  - Portal for ArcGIS 12.1                       │
-│  - ArcGIS Server 12.1 (Hosting Server)          │
-└───────────────────┬─────────────────────────────┘
-                    │ Federación (puerto 6443)
-                    ▼
-┌─────────────────────────────────────────────────┐
-│  MÁQUINA VIRTUAL (VirtualBox)                   │
-│  Hostname: WIN-KQ3HPTQDHP1                      │
-│  IP observada: 192.168.100.249 (ver nota IP)    │
-│                                                 │
-│  - ArcGIS Data Store 12.1                       │
-│      • Relational store                         │
-│      • Object store                             │
-│      • Spatiotemporal big data store            │
-└─────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph HOSTB["MÁQUINA FÍSICA (Host de la compañera)<br/>geoportal.esri.co"]
+        HOSTB_INFO["Antivirus: Kaspersky Endpoint Security<br/>IP observada: 192.168.100.249 (ver nota IP)"]
+        HOSTB_SW["Portal for ArcGIS 12.1<br/>ArcGIS Server 12.1 (Hosting Server)"]
+    end
+    subgraph VMB["MÁQUINA VIRTUAL (VirtualBox)<br/>WIN-KQ3HPTQDHP1"]
+        VMB_IP["IP observada: 192.168.100.249 (ver nota IP)"]
+        VMB_SW["ArcGIS Data Store 12.1<br/>• Relational store<br/>• Object store<br/>• Spatiotemporal big data store"]
+    end
+    HOSTB_INFO --> HOSTB_SW
+    VMB_IP --> VMB_SW
+    HOSTB -->|"Federación puerto 6443"| VMB
 ```
 
 > ⚠️ **Nota sobre inconsistencia de direcciones IP (Entorno B):** En distintos momentos de la conversación, la dirección `192.168.100.249` aparece asociada tanto a `geoportal.esri.co` (máquina física) como, más adelante, a la VM `WIN-KQ3HPTQDHP1`, mientras que en pruebas posteriores la dirección de origen (physical) aparece como `192.168.100.228`. Esto sugiere una posible **reasignación de IP por DHCP** entre distintos momentos de la sesión de trabajo. Esta discrepancia no fue aclarada explícitamente en la conversación — *información no especificada en la conversación.* Se recomienda, al reproducir este runbook, **fijar IPs estáticas o reservas DHCP** para evitar este tipo de confusión (ver sección de Lecciones Aprendidas).
@@ -110,48 +89,47 @@ Esta captura se usó únicamente para explicar el significado de los nombres de 
 
 # Infraestructura
 
-| Elemento | Entorno A (Usuario) | Entorno B (Compañera) |
+| Elemento | Entorno A (Usuario principal) | Entorno B (Compañera) |
 |---|---|---|
-| Sistema operativo | Windows (físico) + Windows (VM VirtualBox) | Windows (físico) + Windows (VM VirtualBox) |
+| Sistema operativo | Windows físico + Windows VM (VirtualBox) | Windows físico + Windows VM (VirtualBox) |
 | Virtualización | Oracle VirtualBox | Oracle VirtualBox |
 | Hostname máquina física | `obonilla.esrinosa.local` | `geoportal.esri.co` |
-| Hostname VM (Data Store [+ Velocity en Entorno A]) | `WIN-OC2B24K34HS` | `WIN-KQ3HPTQDHP1` |
-| Dominio interno | `esrinosa.local` | No especificado como dominio interno; parece dominio propio (`esri.co`) |
-| IP física (adaptador relevante) | `192.168.100.248` (Wi-Fi) | `192.168.100.249` / `192.168.100.228` (ver nota de inconsistencia) |
-| IP VM Data Store | `192.168.100.250` | `192.168.100.249` (ver nota de inconsistencia) |
+| Hostname VM (Data Store, + Velocity en A) | `WIN-OC2B24K34HS` | `WIN-KQ3HPTQDHP1` |
+| Dominio interno | `esrinosa.local` | No especificado; parece `esri.co` |
+| IP física (adaptador relevante) | `192.168.100.248` (Wi-Fi) | `192.168.100.249` / `192.168.100.228` (ver nota debajo) |
+| IP VM Data Store | `192.168.100.250` | `192.168.100.249` (ver nota debajo) |
 | Rango de red | `192.168.100.0/24` | `192.168.100.0/24` |
-| Antivirus / EDR adicional | No reportado (Información no especificada) | **Kaspersky Endpoint Security for Windows** (causa raíz de bloqueos) |
-| DNS | Sin servidor DNS interno funcional para estos hostnames; se resolvió vía archivo `hosts` | Igual: resuelto vía archivo `hosts` |
-| Certificados / HTTPS | Certificado autofirmado por defecto de ArcGIS (advertencia "Not secure" observada en navegador) | No se detalla explícitamente; se asume el mismo comportamiento por defecto |
-| Web Adaptor | Instalado para Portal (contexto de la primera parte de la conversación); gestión de reinstalación discutida | No mencionado explícitamente para este entorno |
-| IIS | Implícito como contenedor del Web Adaptor (no se detallaron pasos de configuración de IIS más allá del reinicio con `iisreset`) | Información no especificada en la conversación |
-| Reverse Proxy / Balanceadores | No aplican en este despliegue (arquitectura de 2 máquinas, sin balanceo) | No aplican |
+| Antivirus / EDR adicional | No reportado | Kaspersky Endpoint Security (ver Problema #21) |
+| DNS | Vía archivo `hosts` (sin DNS interno) | Vía archivo `hosts` (sin DNS interno) |
+| Certificados / HTTPS | Autofirmado (aviso "Not secure" en navegador) | Se asume el mismo comportamiento |
+| Web Adaptor | Instalado para Portal; su reinstalación fue discutida | No mencionado para este entorno |
+| IIS | Implícito, vía Web Adaptor (solo `iisreset`) | No especificado |
+| Reverse Proxy / Balanceadores | No aplica (arquitectura de 2 máquinas) | No aplica |
+
+> La nota "ver nota debajo", en las filas de IP, remite a la inconsistencia de direcciones IP del Entorno B explicada arriba (posible reasignación por DHCP).
 
 ## Puertos utilizados (según documentación oficial de Esri, consultada durante la resolución de incidencias)
 
-> Fuente: documentación oficial "Ports used by ArcGIS Data Store" (enterprise.arcgis.com / doc.esri.com). Esta tabla fue clave para resolver el problema de validación del Data Store Espaciotemporal, ya que inicialmente se probó (por error) un puerto que no correspondía.
+> Fuente: documentación oficial "Ports used by ArcGIS Data Store" (enterprise.arcgis.com / doc.esri.com). Esta lista fue clave para resolver el problema de validación del Data Store Espaciotemporal, ya que inicialmente se probó (por error) un puerto que no correspondía.
 
-| Puerto | Protocolo | Componente | Propósito |
-|---|---|---|---|
-| 443 / 80 | HTTPS/HTTP | Web Adaptor | Acceso externo estándar |
-| 7443 | HTTPS | Portal for ArcGIS | Comunicación de Portal (HTTPS forzado por defecto) |
-| 7080 | HTTP | Portal for ArcGIS | Deshabilitado por defecto (solo si se permite HTTP) |
-| 6443 | HTTPS | ArcGIS Server | Administración del sitio de Server; Data Store envía solicitudes salientes al hosting server por este puerto |
-| 2443 | HTTPS | ArcGIS Data Store (todos los tipos) | Comunicación entre máquinas del Data Store y con el Configuration Wizard / hosting server |
-| 9006 | TCP | ArcGIS Data Store | Comunicación interna con servidor web (Tomcat); no requiere apertura en firewall, pero debe estar libre en la máquina |
-| **9876** | TCP | **Relational store** | Comunicación interna entre hosting server y el **almacén Relacional** (⚠️ no es el puerto del Spatiotemporal — ver "Problemas encontrados") |
-| 9840 | TCP | Relational store | Comunicación con caché en memoria del sistema |
-| 9820, 9850 | TCP | Relational store | Comunicación entre máquinas del data store |
-| 45671, 45672 / 25672, 44369 | TCP | Relational store | Requeridos si se usan webhooks de servicios |
-| 50432 | TCP | Relational store | Requerido al actualizar (upgrade) el almacén relacional |
-| **9220** | HTTP/HTTPS | **Spatiotemporal big data store** | **Comunicación entre el hosting server (y servidores federados) y el spatiotemporal big data store** ✅ puerto correcto |
-| **9320** | TCP | **Spatiotemporal big data store** | **Comunicación interna entre máquinas del clúster spatiotemporal** ✅ puerto correcto |
-| 29878/29879 (u otras variantes según versión) | HTTP/HTTPS | Object store | Comunicación del hosting server con el object store |
-| 29080, 29081 | HTTP/HTTPS | Tile cache / Scene tile cache data store | Comunicación del tile cache data store |
-| 9829 | TCP | Graph store (ArcGIS Knowledge Server) | Comunicación con el graph store (no usado en este despliegue, incluido por completitud) |
-| 9828, 9830, 9831 | TCP | Graph store | Comunicación interna de clúster (no usado en este despliegue) |
-| **7143** | HTTPS | **ArcGIS Velocity** | Puerto de administración/servicios de Velocity usado al federarlo con Portal |
-
+- **443 / 80** (HTTPS/HTTP) — *Web Adaptor*: acceso externo estándar.
+- **7443** (HTTPS) — *Portal for ArcGIS*: comunicación de Portal (HTTPS forzado por defecto).
+- **7080** (HTTP) — *Portal for ArcGIS*: deshabilitado por defecto (solo si se permite HTTP).
+- **6443** (HTTPS) — *ArcGIS Server*: administración del sitio de Server; Data Store envía solicitudes salientes al hosting server por este puerto.
+- **2443** (HTTPS) — *ArcGIS Data Store (todos los tipos)*: comunicación entre máquinas del Data Store y con el Configuration Wizard / hosting server.
+- **9006** (TCP) — *ArcGIS Data Store*: comunicación interna con el servidor web (Tomcat); no requiere apertura en firewall, pero debe estar libre en la máquina.
+- **9876** (TCP) — *Relational store*: comunicación interna entre el hosting server y el almacén Relacional. ⚠️ **No** es el puerto del Spatiotemporal — ver Problema #26.
+- **9840** (TCP) — *Relational store*: comunicación con la caché en memoria del sistema.
+- **9820, 9850** (TCP) — *Relational store*: comunicación entre máquinas del data store.
+- **45671, 45672 / 25672, 44369** (TCP) — *Relational store*: requeridos si se usan webhooks de servicios.
+- **50432** (TCP) — *Relational store*: requerido al actualizar (upgrade) el almacén relacional.
+- **9220** (HTTP/HTTPS) — *Spatiotemporal big data store*: comunicación entre el hosting server (y servidores federados) y el spatiotemporal big data store. ✅ Puerto correcto.
+- **9320** (TCP) — *Spatiotemporal big data store*: comunicación interna entre máquinas del clúster spatiotemporal. ✅ Puerto correcto.
+- **29878/29879** (u otras variantes según versión, HTTP/HTTPS) — *Object store*: comunicación del hosting server con el object store.
+- **29080, 29081** (HTTP/HTTPS) — *Tile cache / Scene tile cache data store*: comunicación del tile cache data store.
+- **9829** (TCP) — *Graph store (ArcGIS Knowledge Server)*: comunicación con el graph store (no usado en este despliegue, incluido por completitud).
+- **9828, 9830, 9831** (TCP) — *Graph store*: comunicación interna de clúster (no usado en este despliegue).
+- **7143** (HTTPS) — *ArcGIS Velocity*: puerto de administración/servicios de Velocity, usado al federarlo con Portal.
 
 ---
 
@@ -436,7 +414,9 @@ notepad C:\Windows\System32\drivers\etc\hosts
 |---|---|
 | VM Data Store del usuario (`WIN-OC2B24K34HS`) | `192.168.100.248    obonilla.esrinosa.local` |
 | VM Data Store de la compañera (`WIN-KQ3HPTQDHP1`) | `<IP-de-geoportal.esri.co>    geoportal.esri.co` |
-| Máquina física del usuario (`obonilla.esrinosa.local`) | `192.168.100.250    WIN-OC2B24K34HS` (agregada tras detectar que el ping en sentido inverso —física → VM— fallaba) |
+| Máquina física del usuario (`obonilla.esrinosa.local`) | `192.168.100.250    WIN-OC2B24K34HS` |
+
+> Esta última entrada se agregó tras detectar que el ping en sentido inverso (física → VM) fallaba — ver Problema #17.
 
 **Verificación tras cada cambio:**
 ```cmd
@@ -595,38 +575,187 @@ configuredatastore.bat https://obonilla.esrinosa.local:6443/arcgis admin Esri123
 
 # Problemas encontrados
 
-| # | Problema | Causa | Solución | Estado |
-|---|---|---|---|---|
-| 1 | Duda sobre si desinstalar el Web Adaptor de Portal, el de Server, o ambos, antes de instalar uno nuevo | Confusión sobre si son instalaciones independientes | Se aclaró que Web Adaptor de Portal y de Server son independientes; solo se desinstala el que corresponde al componente que se actualiza | ✅ Resuelto (aclaración conceptual) |
-| 2 | No saber qué archivo seleccionar en el "Software Authorization Wizard" | Falta de familiaridad con el proceso de licenciamiento de Esri | Se identificó que se requiere el archivo `.ecp` descargable desde my.esri.com → Licensing; alternativamente, autorización en línea con número de autorización | ✅ Resuelto |
-| 3 | Error de federación: *"Error al validar la base de datos administrada del servidor '/enterpriseDatabases/AGSDataStore_ds_nmpts56z'"* | ArcGIS Data Store no estaba corriendo o no había completado su configuración inicial | Se recomendó verificar el servicio de Data Store, revisar `datastoreadmin`, conectividad por puerto 2443 y logs de Server | ✅ Diagnóstico entregado (resolución continuó más adelante en el chat con la reinstalación completa del Data Store) |
-| 4 | Incertidumbre sobre si la versión de Enterprise instalada permitía instalar Velocity | Versión instalada no confirmada explícitamente por el usuario (se vio un número de build "20112" en una captura previa, posiblemente de una versión anterior) | Se investigó que ArcGIS Enterprise 12.1 es la versión mínima requerida para Velocity self-hosted | ⚠️ Parcialmente resuelto — la versión exacta original nunca fue confirmada explícitamente por el usuario; se asumió 12.1 por el título de ventana visto después ("ArcGIS Data Store 12.1 Setup") |
-| 5 | Duda sobre si instalar primero el Spatiotemporal Data Store antes que Velocity | No estaba claro el orden de dependencia entre componentes | Se aclaró que Velocity no depende de tener el spatiotemporal ya configurado para instalarse, pero sí lo necesita para poder escribir salidas a feature layers espacio-temporales | ✅ Resuelto |
-| 6 | Duda sobre en qué máquina se instala el Spatiotemporal Data Store: ¿en la de Velocity o en la del hosting server? | Confusión sobre la arquitectura de componentes | Se confirmó (con respaldo de documentación oficial) que el Data Store vive junto al hosting server, no en la máquina de Velocity | ✅ Resuelto |
-| 7 | Necesidad de copiar texto entre la máquina física y la VM de VirtualBox | Portapapeles compartido desactivado por defecto | Activar "Portapapeles compartido" en modo Bidireccional + instalar Guest Additions | ✅ Resuelto |
-| 8 | Necesidad de transferir un **archivo completo** (no solo texto) a la VM | El portapapeles no soporta archivos completos de forma confiable | Se recomendó usar **Carpetas compartidas** de VirtualBox (más estable que Drag & Drop para archivos grandes) | ✅ Resuelto |
-| 9 | Error ejecutando `configuredatastore.bat --stores spatiotemporal`: *"El almacén 'spatiotemporal' no está instalado en la configuración actual"* | El instalador de ArcGIS Data Store no tenía seleccionada la característica "Spatiotemporal big data" (solo se instaló Relational por defecto) | Inicialmente se intentó "Modificar" la instalación vía Agregar/quitar programas; finalmente se optó por reinstalar desde cero en una nueva VM seleccionando los 3 tipos desde el inicio | ✅ Resuelto (con cambio de enfoque — ver Decisiones técnicas) |
-| 10 | Confusión: *"pero mi admin no es portaladmin?"* | El usuario no distinguía entre la cuenta de Portal (`portaladmin`), la de Server (`siteadmin`/PSA) y la cuenta de Windows del servicio de Data Store | Se explicaron las 3 cuentas como entidades separadas y para qué sirve cada una | ✅ Resuelto |
-| 11 | Error: *"Failed to log in. Invalid username or password specified."* al ejecutar `configuredatastore.bat` | Se usaron credenciales incorrectas (posiblemente las de Portal en lugar de las del Primary Site Administrator de ArcGIS Server) | Se indicó verificar credenciales directamente en `https://obonilla.esrinosa.local:6443/arcgis/admin` | ✅ Resuelto (tras corregir credenciales, apareció el siguiente error, el #9) |
-| 12 | Confusión: *"pero recuerda que es del datastore que está en una máquina virtual ajena"* — ¿la cuenta de Windows debe coincidir con la del Server/Portal? | El usuario asumía que las cuentas de servicio de Windows debían coincidir entre máquinas | Se aclaró que, al ser VMs separadas, cada una tiene su propia cuenta de Windows local independiente | ✅ Resuelto |
-| 13 | Pantalla del asistente de configuración de Data Store (`https://localhost:2443/arcgis/datastore/`) se veía como texto plano sin estilos | Certificado autofirmado no confiable bloqueando sub-recursos (CSS/JS), navegador incompatible, o caché corrupta | Se resolvió probando otro navegador y/o aceptando el certificado / limpiando caché | ✅ Resuelto |
-| 14 | Confusión sobre qué poner en el campo **"Hosting server"** del asistente | El usuario pensaba que debía referirse a la propia VM de Data Store, cuando en realidad se refiere a la máquina del ArcGIS Server/hosting server | Se aclaró que debe apuntar al hostname:puerto del ArcGIS Server ya federado con Portal (no a la VM local) | ✅ Resuelto |
-| 15 | Error: *"Could not connect to server on machine 'obonilla.esrinosa.local'..."* al completar "Hosting server details" | La VM de Data Store no podía resolver el hostname `obonilla.esrinosa.local` (sin DNS interno) | Se agregó entrada manual en el archivo `hosts` de la VM con la IP física correspondiente | ✅ Resuelto |
-| 16 | Múltiples confusiones sobre qué `ipconfig` corresponde a qué máquina (física vs. VM Data Store vs. VM Portal/Server hipotética) | Se ejecutó `ipconfig` varias veces en máquinas equivocadas (adaptador Host-Only 192.168.56.1 del host físico, luego repetidamente la IP de la propia VM de Data Store) | Se guio paso a paso hasta clarificar que Portal/Server estaban en la **máquina física**, no en una VM separada | ✅ Resuelto (tras varias iteraciones) |
-| 17 | Ping en un sentido (VM → física) funcionaba, pero en sentido inverso (física → VM, `ping WIN-OC2B24K34HS`) fallaba al 100% | El Firewall de Windows en la **VM de Data Store** bloqueaba conexiones entrantes (ICMP y TCP) desde la máquina física | Se crearon reglas de entrada en el firewall de la VM (ICMP, puertos 2443, 9876, rango 29079-29080) | ✅ Resuelto (ping bidireccional confirmado con 0% de pérdida) |
-| 18 | Firewall de Windows en la **máquina física** bloqueando el puerto 6443 entrante desde la VM | Regla de firewall no existente para el puerto 6443 en el host | Se creó la regla `New-NetFirewallRule -DisplayName "ArcGIS Server 6443" -Direction Inbound -LocalPort 6443 -Protocol TCP -Action Allow` | ✅ Resuelto |
-| 19 | Error `Acceso denegado` / `PermissionDenied` al ejecutar `New-NetFirewallRule` | PowerShell no se ejecutaba como Administrador, pese a mostrar el usuario correcto en el prompt | Se explicó cómo abrir PowerShell elevado y verificar el título de ventana ("Administrador: ...") | ✅ Resuelto |
-| 20 | Mismo error de conexión (*"Could not connect to server on machine 'geoportal.esri.co'"*) reproducido en el entorno de la compañera | Mismo patrón: DNS + firewall, en un entorno completamente distinto | Se replicó exactamente el mismo procedimiento (hosts + firewall) para la compañera | ✅ Resuelto |
-| 21 | Tras abrir el firewall de Windows en la máquina de la compañera, el puerto 6443 seguía sin responder (`TcpTestSucceeded: False`), incluso con **todos los perfiles de firewall desactivados** | **Kaspersky Endpoint Security for Windows** tenía su propio motor de firewall, independiente del Firewall de Windows nativo (no se desactiva con `netsh advfirewall`) | Se identificó Kaspersky vía `Get-CimInstance` y se indicó revisar/desactivar su Firewall y el módulo "Network Attack Blocker" | ✅ Resuelto (la compañera confirmó "está apagado el firewall" de Kaspersky, y posteriormente su Data Store avanzó exitosamente) |
-| 22 | Confusión sobre si la federación del Spatiotemporal Data Store debía hacerse con el servidor de **Velocity** o con el **GIS Server** | El usuario no tenía claro qué componente actúa como "hosting server" para efectos del Data Store | Se aclaró que la federación debe ser con el **ArcGIS Server (GIS Server / hosting server)**, no con Velocity | ✅ Resuelto |
-| 23 | Se estuvo a punto de crear una federación de servidor **duplicada** usando "Add Server Site", cuando el ArcGIS Server ya estaba federado | Malentendido sobre la causa del ❗ (rojo) en Espaciotemporal — se asumió que faltaba federar, cuando ya estaba federado | Se instruyó **cancelar** el formulario "Add Server Site" y verificar primero la lista de "Servidores federados" existente | ✅ Resuelto (se confirmó que `obonilla.esrinosa.local:6443` ya aparecía como "All systems operational") |
-| 24 | Data Store **Espaciotemporal** seguía en ❗ (rojo) en la tabla de validación, aunque Relacional y Administrado Objeto ya estaban en ✅ (verde) | Falta de comunicación **bidireccional** de red entre la máquina física y la VM del Data Store (el ping en sentido físico→VM fallaba al 100%) | Ver problema #17 — al resolver la comunicación bidireccional, el estado cambió a ✅ verde | ✅ Resuelto — confirmado con los 3 Data Stores en verde para el usuario |
-| 25 | Mismo problema (#24) reproducido en el entorno de la compañera: Espaciotemporal en rojo pese a que Relacional y Objeto ya validaban en verde | Firewall de la VM de la compañera (`WIN-KQ3HPTQDHP1`) bloqueando tráfico entrante | Se aplicaron las mismas reglas de firewall en su VM | ⚠️ Parcialmente resuelto — el puerto 2443 conectó (`True`), pero persistió un fallo en el puerto usado para diagnosticar (ver problema #26) |
-| 26 | Se probó el puerto **9876** para diagnosticar el bloqueo del Espaciotemporal, y seguía fallando (`TcpTestSucceeded: False`) incluso tras crear reglas de firewall para ese puerto | **Error de diagnóstico:** el puerto 9876 corresponde al **Relational store**, no al **Spatiotemporal big data store** (confirmado consultando la documentación oficial de Esri) | Se corrigió el diagnóstico usando los puertos correctos del Spatiotemporal: **9220** y **9320** | ✅ Resuelto — ambos puertos correctos confirmaron `TcpTestSucceeded: True` y `LISTENING` |
-| 27 | Posible existencia de una carpeta de contenido **duplicada** (`C:\arcgisdatastore` vs. `C:\Enterprise\arcgisdatastore`) en la VM de la compañera, por reintentos fallidos previos del asistente | Un primer intento de configuración pudo haber quedado a medias usando `C:\arcgisdatastore`, y un reintento posterior usó una ruta distinta (`C:\Enterprise\arcgisdatastore`) que sí se completó | Se recomendó primero revalidar en Portal (posiblemente ya resuelto solo con la corrección de puertos), y solo si persistía, verificar la ruta activa en la configuración del Data Store y eliminar la carpeta residual si estaba vacía/incompleta | ⚠️ **Sin confirmación final en la conversación** — información no especificada si finalmente se eliminó alguna carpeta |
-| 28 | Error de validación de formulario al federar Velocity: *"A service URL is required" / "An administration URL is required"* | **Error de tipeo**: se escribió `htttps://win-oc2b24k34hs:7143/arcgis` (con **tres** "t") en lugar de `https://` | Se identificó y corrigió el typo en ambos campos (Services URL y Administration URL) | ✅ Resuelto (identificado; corrección pendiente de confirmación explícita por el usuario) |
-| 29 | Error en paralelo: *"Could not access any server machines. Please contact your system administrator."* en `obonilla.esrinosa.local/server/manager` | **Causa no confirmada en la conversación** — posible relación con cambios de red/firewall realizados mientras se trabajaba en la federación de Velocity | Se sugirió verificar el estado del servicio "ArcGIS Server" en `services.msc` | ⚠️ **Sin resolución confirmada al cierre de la conversación** — información no especificada |
-| 30 | Error: *"No se puede acceder a la dirección URL de administración de ArcGIS Server 'https://win-oc2b24k34hs:7143/arcgis' desde Portal for ArcGIS"* al federar Velocity | Mismo patrón de conectividad ya visto: puerto 7143 (Velocity) posiblemente bloqueado entre la máquina física y la VM | Se indicó repetir el mismo procedimiento de diagnóstico: `Test-NetConnection` al puerto 7143, y de ser necesario, crear regla de firewall `New-NetFirewallRule -DisplayName "ArcGIS Velocity 7143" -Direction Inbound -LocalPort 7143 -Protocol TCP -Action Allow` en la VM de Velocity | ⚠️ **Pendiente de confirmación final** — la conversación concluye (para dar paso a la solicitud de este documento) antes de confirmar si el puerto 7143 quedó abierto y la federación de Velocity se completó |
+Cada problema documentado durante el despliegue, en orden cronológico. La numeración (#1–#30) se mantiene igual que en la versión anterior de este documento, por lo que las referencias cruzadas en el resto del runbook (p. ej. "ver Problema #17") siguen siendo válidas.
+
+### Problema 1 — Web Adaptor: ¿desinstalar el de Portal, el de Server o ambos?
+- **Problema:** Duda sobre si desinstalar el Web Adaptor de Portal, el de Server, o ambos, antes de instalar uno nuevo.
+- **Causa:** Confusión sobre si son instalaciones independientes.
+- **Solución:** Se aclaró que Web Adaptor de Portal y de Server son independientes; solo se desinstala el que corresponde al componente que se actualiza.
+- **Estado:** ✅ Resuelto (aclaración conceptual)
+
+### Problema 2 — Qué archivo usar en el Software Authorization Wizard
+- **Problema:** No saber qué archivo seleccionar en el "Software Authorization Wizard".
+- **Causa:** Falta de familiaridad con el proceso de licenciamiento de Esri.
+- **Solución:** Se identificó que se requiere el archivo `.ecp` descargable desde my.esri.com → Licensing; alternativamente, autorización en línea con número de autorización.
+- **Estado:** ✅ Resuelto
+
+### Problema 3 — Error de federación: base de datos administrada no válida
+- **Problema:** Error de federación: *"Error al validar la base de datos administrada del servidor '/enterpriseDatabases/AGSDataStore_ds_nmpts56z'"*.
+- **Causa:** ArcGIS Data Store no estaba corriendo o no había completado su configuración inicial.
+- **Solución:** Se recomendó verificar el servicio de Data Store, revisar `datastoreadmin`, conectividad por puerto 2443 y logs de Server.
+- **Estado:** ✅ Diagnóstico entregado (la resolución continuó más adelante con la reinstalación completa del Data Store)
+
+### Problema 4 — ¿La versión de Enterprise instalada permite instalar Velocity?
+- **Problema:** Incertidumbre sobre si la versión de Enterprise instalada permitía instalar Velocity.
+- **Causa:** Versión instalada no confirmada explícitamente por el usuario (se vio un número de build "20112" en una captura previa, posiblemente de una versión anterior).
+- **Solución:** Se investigó que ArcGIS Enterprise 12.1 es la versión mínima requerida para Velocity self-hosted.
+- **Estado:** ⚠️ Parcialmente resuelto — la versión exacta original nunca fue confirmada explícitamente por el usuario; se asumió 12.1 por el título de ventana visto después ("ArcGIS Data Store 12.1 Setup")
+
+### Problema 5 — ¿Instalar el Spatiotemporal antes que Velocity?
+- **Problema:** Duda sobre si instalar primero el Spatiotemporal Data Store antes que Velocity.
+- **Causa:** No estaba claro el orden de dependencia entre componentes.
+- **Solución:** Se aclaró que Velocity no depende de tener el spatiotemporal ya configurado para instalarse, pero sí lo necesita para poder escribir salidas a feature layers espacio-temporales.
+- **Estado:** ✅ Resuelto
+
+### Problema 6 — ¿En qué máquina va el Spatiotemporal Data Store?
+- **Problema:** Duda sobre en qué máquina se instala el Spatiotemporal Data Store: ¿en la de Velocity o en la del hosting server?
+- **Causa:** Confusión sobre la arquitectura de componentes.
+- **Solución:** Se confirmó (con respaldo de documentación oficial) que el Data Store vive junto al hosting server, no en la máquina de Velocity.
+- **Estado:** ✅ Resuelto
+
+### Problema 7 — Copiar texto entre el host físico y la VM
+- **Problema:** Necesidad de copiar texto entre la máquina física y la VM de VirtualBox.
+- **Causa:** Portapapeles compartido desactivado por defecto.
+- **Solución:** Activar "Portapapeles compartido" en modo Bidireccional + instalar Guest Additions.
+- **Estado:** ✅ Resuelto
+
+### Problema 8 — Transferir un archivo completo a la VM
+- **Problema:** Necesidad de transferir un archivo completo (no solo texto) a la VM.
+- **Causa:** El portapapeles no soporta archivos completos de forma confiable.
+- **Solución:** Se recomendó usar Carpetas compartidas de VirtualBox (más estable que Drag & Drop para archivos grandes).
+- **Estado:** ✅ Resuelto
+
+### Problema 9 — "El almacén 'spatiotemporal' no está instalado"
+- **Problema:** Error ejecutando `configuredatastore.bat --stores spatiotemporal`: *"El almacén 'spatiotemporal' no está instalado en la configuración actual"*.
+- **Causa:** El instalador de ArcGIS Data Store no tenía seleccionada la característica "Spatiotemporal big data" (solo se instaló Relational por defecto).
+- **Solución:** Inicialmente se intentó "Modificar" la instalación vía Agregar/quitar programas; finalmente se optó por reinstalar desde cero en una nueva VM seleccionando los 3 tipos desde el inicio.
+- **Estado:** ✅ Resuelto (con cambio de enfoque — ver "Decisiones técnicas")
+
+### Problema 10 — Confusión entre `portaladmin` y el admin real
+- **Problema:** Confusión: *"pero mi admin no es portaladmin?"*
+- **Causa:** El usuario no distinguía entre la cuenta de Portal (`portaladmin`), la de Server (`siteadmin`/PSA) y la cuenta de Windows del servicio de Data Store.
+- **Solución:** Se explicaron las 3 cuentas como entidades separadas y para qué sirve cada una.
+- **Estado:** ✅ Resuelto
+
+### Problema 11 — "Failed to log in" al ejecutar `configuredatastore.bat`
+- **Problema:** Error: *"Failed to log in. Invalid username or password specified."* al ejecutar `configuredatastore.bat`.
+- **Causa:** Se usaron credenciales incorrectas (posiblemente las de Portal en lugar de las del Primary Site Administrator de ArcGIS Server).
+- **Solución:** Se indicó verificar credenciales directamente en `https://obonilla.esrinosa.local:6443/arcgis/admin`.
+- **Estado:** ✅ Resuelto (tras corregir credenciales, apareció el siguiente error — ver Problema #9)
+
+### Problema 12 — ¿La cuenta de Windows debe coincidir entre VMs?
+- **Problema:** Confusión: *"pero recuerda que es del datastore que está en una máquina virtual ajena"* — ¿la cuenta de Windows debe coincidir con la del Server/Portal?
+- **Causa:** El usuario asumía que las cuentas de servicio de Windows debían coincidir entre máquinas.
+- **Solución:** Se aclaró que, al ser VMs separadas, cada una tiene su propia cuenta de Windows local independiente.
+- **Estado:** ✅ Resuelto
+
+### Problema 13 — Asistente de Data Store sin estilos (CSS/JS)
+- **Problema:** Pantalla del asistente de configuración de Data Store (`https://localhost:2443/arcgis/datastore/`) se veía como texto plano sin estilos.
+- **Causa:** Certificado autofirmado no confiable bloqueando sub-recursos (CSS/JS), navegador incompatible, o caché corrupta.
+- **Solución:** Se resolvió probando otro navegador y/o aceptando el certificado / limpiando caché.
+- **Estado:** ✅ Resuelto
+
+### Problema 14 — ¿Qué poner en el campo "Hosting server"?
+- **Problema:** Confusión sobre qué poner en el campo "Hosting server" del asistente.
+- **Causa:** El usuario pensaba que debía referirse a la propia VM de Data Store, cuando en realidad se refiere a la máquina del ArcGIS Server/hosting server.
+- **Solución:** Se aclaró que debe apuntar al hostname:puerto del ArcGIS Server ya federado con Portal (no a la VM local).
+- **Estado:** ✅ Resuelto
+
+### Problema 15 — "Could not connect to server on machine..."
+- **Problema:** Error: *"Could not connect to server on machine 'obonilla.esrinosa.local'..."* al completar "Hosting server details".
+- **Causa:** La VM de Data Store no podía resolver el hostname `obonilla.esrinosa.local` (sin DNS interno).
+- **Solución:** Se agregó entrada manual en el archivo `hosts` de la VM con la IP física correspondiente.
+- **Estado:** ✅ Resuelto
+
+### Problema 16 — Confusión entre IPs de `ipconfig` (física vs. VM)
+- **Problema:** Múltiples confusiones sobre qué `ipconfig` corresponde a qué máquina (física vs. VM Data Store vs. VM Portal/Server hipotética).
+- **Causa:** Se ejecutó `ipconfig` varias veces en máquinas equivocadas (adaptador Host-Only 192.168.56.1 del host físico, luego repetidamente la IP de la propia VM de Data Store).
+- **Solución:** Se guio paso a paso hasta clarificar que Portal/Server estaban en la máquina física, no en una VM separada.
+- **Estado:** ✅ Resuelto (tras varias iteraciones)
+
+### Problema 17 — Ping VM→física funciona, física→VM falla al 100%
+- **Problema:** Ping en un sentido (VM → física) funcionaba, pero en sentido inverso (física → VM, `ping WIN-OC2B24K34HS`) fallaba al 100%.
+- **Causa:** El Firewall de Windows en la VM de Data Store bloqueaba conexiones entrantes (ICMP y TCP) desde la máquina física.
+- **Solución:** Se crearon reglas de entrada en el firewall de la VM (ICMP, puertos 2443, 9876, rango 29079-29080).
+- **Estado:** ✅ Resuelto (ping bidireccional confirmado con 0% de pérdida)
+
+### Problema 18 — Firewall del host físico bloqueando el puerto 6443
+- **Problema:** Firewall de Windows en la máquina física bloqueando el puerto 6443 entrante desde la VM.
+- **Causa:** Regla de firewall no existente para el puerto 6443 en el host.
+- **Solución:** Se creó la regla `New-NetFirewallRule -DisplayName "ArcGIS Server 6443" -Direction Inbound -LocalPort 6443 -Protocol TCP -Action Allow`.
+- **Estado:** ✅ Resuelto
+
+### Problema 19 — "Acceso denegado" al crear reglas de firewall
+- **Problema:** Error `Acceso denegado` / `PermissionDenied` al ejecutar `New-NetFirewallRule`.
+- **Causa:** PowerShell no se ejecutaba como Administrador, pese a mostrar el usuario correcto en el prompt.
+- **Solución:** Se explicó cómo abrir PowerShell elevado y verificar el título de ventana ("Administrador: ...").
+- **Estado:** ✅ Resuelto
+
+### Problema 20 — Mismo error de conexión, ahora en el entorno de la compañera
+- **Problema:** Mismo error de conexión (*"Could not connect to server on machine 'geoportal.esri.co'"*) reproducido en el entorno de la compañera.
+- **Causa:** Mismo patrón: DNS + firewall, en un entorno completamente distinto.
+- **Solución:** Se replicó exactamente el mismo procedimiento (hosts + firewall) para la compañera.
+- **Estado:** ✅ Resuelto
+
+### Problema 21 — Kaspersky bloqueando el puerto 6443 en segundo plano
+- **Problema:** Tras abrir el firewall de Windows en la máquina de la compañera, el puerto 6443 seguía sin responder (`TcpTestSucceeded: False`), incluso con todos los perfiles de firewall desactivados.
+- **Causa:** **Kaspersky Endpoint Security for Windows** tenía su propio motor de firewall, independiente del Firewall de Windows nativo (no se desactiva con `netsh advfirewall`).
+- **Solución:** Se identificó Kaspersky vía `Get-CimInstance` y se indicó revisar/desactivar su Firewall y el módulo "Network Attack Blocker".
+- **Estado:** ✅ Resuelto (la compañera confirmó "está apagado el firewall" de Kaspersky, y posteriormente su Data Store avanzó exitosamente)
+
+### Problema 22 — ¿Federar el Spatiotemporal con Velocity o con el GIS Server?
+- **Problema:** Confusión sobre si la federación del Spatiotemporal Data Store debía hacerse con el servidor de Velocity o con el GIS Server.
+- **Causa:** El usuario no tenía claro qué componente actúa como "hosting server" para efectos del Data Store.
+- **Solución:** Se aclaró que la federación debe ser con el ArcGIS Server (GIS Server / hosting server), no con Velocity.
+- **Estado:** ✅ Resuelto
+
+### Problema 23 — A punto de crear una federación de servidor duplicada
+- **Problema:** Se estuvo a punto de crear una federación de servidor duplicada usando "Add Server Site", cuando el ArcGIS Server ya estaba federado.
+- **Causa:** Malentendido sobre la causa del ❗ (rojo) en Espaciotemporal — se asumió que faltaba federar, cuando ya estaba federado.
+- **Solución:** Se instruyó cancelar el formulario "Add Server Site" y verificar primero la lista de "Servidores federados" existente.
+- **Estado:** ✅ Resuelto (se confirmó que `obonilla.esrinosa.local:6443` ya aparecía como "All systems operational")
+
+### Problema 24 — Espaciotemporal en rojo pese a los otros dos en verde
+- **Problema:** Data Store Espaciotemporal seguía en ❗ (rojo) en la tabla de validación, aunque Relacional y Administrado Objeto ya estaban en ✅ (verde).
+- **Causa:** Falta de comunicación bidireccional de red entre la máquina física y la VM del Data Store (el ping en sentido físico→VM fallaba al 100%).
+- **Solución:** Ver Problema #17 — al resolver la comunicación bidireccional, el estado cambió a ✅ verde.
+- **Estado:** ✅ Resuelto — confirmado con los 3 Data Stores en verde para el usuario
+
+### Problema 25 — El mismo problema (#24), ahora en el entorno de la compañera
+- **Problema:** Mismo problema del #24 reproducido en el entorno de la compañera: Espaciotemporal en rojo pese a que Relacional y Objeto ya validaban en verde.
+- **Causa:** Firewall de la VM de la compañera (`WIN-KQ3HPTQDHP1`) bloqueando tráfico entrante.
+- **Solución:** Se aplicaron las mismas reglas de firewall en su VM.
+- **Estado:** ⚠️ Parcialmente resuelto — el puerto 2443 conectó (`True`), pero persistió un fallo en el puerto usado para diagnosticar (ver Problema #26)
+
+### Problema 26 — Puerto de diagnóstico incorrecto: 9876 en vez de 9220/9320
+- **Problema:** Se probó el puerto 9876 para diagnosticar el bloqueo del Espaciotemporal, y seguía fallando (`TcpTestSucceeded: False`) incluso tras crear reglas de firewall para ese puerto.
+- **Causa:** **Error de diagnóstico**: el puerto 9876 corresponde al Relational store, no al Spatiotemporal big data store (confirmado consultando la documentación oficial de Esri).
+- **Solución:** Se corrigió el diagnóstico usando los puertos correctos del Spatiotemporal: 9220 y 9320.
+- **Estado:** ✅ Resuelto — ambos puertos correctos confirmaron `TcpTestSucceeded: True` y `LISTENING`
+
+### Problema 27 — Posible carpeta de datos duplicada en la VM de la compañera
+- **Problema:** Posible existencia de una carpeta de contenido duplicada (`C:\arcgisdatastore` vs. `C:\Enterprise\arcgisdatastore`) en la VM de la compañera, por reintentos fallidos previos del asistente.
+- **Causa:** Un primer intento de configuración pudo haber quedado a medias usando `C:\arcgisdatastore`, y un reintento posterior usó una ruta distinta (`C:\Enterprise\arcgisdatastore`) que sí se completó.
+- **Solución:** Se recomendó primero revalidar en Portal (posiblemente ya resuelto solo con la corrección de puertos), y solo si persistía, verificar la ruta activa en la configuración del Data Store y eliminar la carpeta residual si estaba vacía/incompleta.
+- **Estado:** ⚠️ Sin confirmación final en la conversación — información no especificada sobre si finalmente se eliminó alguna carpeta
+
+### Problema 28 — Typo `htttps` al federar Velocity
+- **Problema:** Error de validación de formulario al federar Velocity: *"A service URL is required"* / *"An administration URL is required"*.
+- **Causa:** Error de tipeo: se escribió `htttps://win-oc2b24k34hs:7143/arcgis` (con tres "t") en lugar de `https://`.
+- **Solución:** Se identificó y corrigió el typo en ambos campos (Services URL y Administration URL).
+- **Estado:** ✅ Resuelto (identificado; corrección pendiente de confirmación explícita por el usuario)
+
+### Problema 29 — "Could not access any server machines" en Server Manager
+- **Problema:** Error en paralelo: *"Could not access any server machines. Please contact your system administrator."* en `obonilla.esrinosa.local/server/manager`.
+- **Causa:** No confirmada en la conversación — posible relación con cambios de red/firewall realizados mientras se trabajaba en la federación de Velocity.
+- **Solución:** Se sugirió verificar el estado del servicio "ArcGIS Server" en `services.msc`.
+- **Estado:** ⚠️ Sin resolución confirmada al cierre de la conversación — información no especificada
+
+### Problema 30 — Puerto 7143 bloqueado al federar Velocity
+- **Problema:** Error: *"No se puede acceder a la dirección URL de administración de ArcGIS Server 'https://win-oc2b24k34hs:7143/arcgis' desde Portal for ArcGIS"* al federar Velocity.
+- **Causa:** Mismo patrón de conectividad ya visto: puerto 7143 (Velocity) posiblemente bloqueado entre la máquina física y la VM.
+- **Solución:** Se indicó repetir el mismo procedimiento de diagnóstico: `Test-NetConnection` al puerto 7143, y de ser necesario, crear la regla `New-NetFirewallRule -DisplayName "ArcGIS Velocity 7143" -Direction Inbound -LocalPort 7143 -Protocol TCP -Action Allow` en la VM de Velocity.
+- **Estado:** ⚠️ Pendiente de confirmación final — la conversación concluye (para dar paso a la solicitud de este documento) antes de confirmar si el puerto 7143 quedó abierto y la federación de Velocity se completó
 
 ---
 
@@ -1011,4 +1140,3 @@ Set-NetConnectionProfile -InterfaceAlias "Ethernet" -NetworkCategory Private
 ---
 
 *Fin del documento.*
-
